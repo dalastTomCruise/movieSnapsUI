@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Movie Guessing Game</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f0f0f;
+      color: #f0f0f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      letter-spacing: 0.05em;
+      color: #ffffff;
+    }
+
+    /* Loading */
+    #loading-view {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 3rem;
+    }
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid #333;
+      border-top-color: #e0b030;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Error */
+    #error-view {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 2rem;
+      text-align: center;
+    }
+    #error-message { color: #ff6b6b; font-size: 1rem; }
+
+    /* Image Viewer */
+    #image-viewer {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 900px;
+      gap: 0.75rem;
+    }
+    .image-wrapper {
+      position: relative;
+      width: 100%;
+      background: #1a1a1a;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #screenshot {
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    .nav-btn {
+      width: 48px;
+      height: 48px;
+      min-width: 44px;
+      min-height: 44px;
+      border: none;
+      border-radius: 50%;
+      background: #2a2a2a;
+      color: #f0f0f0;
+      font-size: 1.25rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .nav-btn:hover:not(:disabled) { background: #e0b030; color: #0f0f0f; }
+    .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    #counter { font-size: 0.95rem; color: #aaa; min-width: 60px; text-align: center; }
+
+    /* Reveal Panel */
+    #reveal-panel {
+      display: none;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 100%;
+      max-width: 900px;
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-top: 0.5rem;
+    }
+    #reveal-panel h2 { font-size: 1.4rem; color: #e0b030; }
+    #reveal-panel .meta { font-size: 0.9rem; color: #aaa; }
+    #reveal-panel .synopsis { font-size: 0.95rem; line-height: 1.5; margin-top: 0.5rem; }
+    #reveal-panel .cast { font-size: 0.85rem; color: #ccc; margin-top: 0.25rem; }
+
+    /* Action Bar */
+    #action-bar {
+      display: none;
+      gap: 1rem;
+      margin-top: 0.75rem;
+    }
+    .action-btn {
+      padding: 0.65rem 1.5rem;
+      min-height: 44px;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .action-btn:hover { opacity: 0.85; }
+    #btn-reveal { background: #e0b030; color: #0f0f0f; }
+    #btn-new { background: #3a7bd5; color: #fff; }
+    #btn-skip { background: #2a2a2a; color: #f0f0f0; }
+    #btn-hint { background: #1e3a5f; color: #7eb8f7; border: 1px solid #2a5a8f; }
+
+    /* Hints */
+    #hints-panel {
+      display: none;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 100%;
+      max-width: 900px;
+      margin-top: 0.5rem;
+    }
+    .hint-item {
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+    .hint-label { color: #e0b030; font-weight: 600; min-width: 60px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .hint-value { color: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <h1>🎬 Movie Guessing Game</h1>
+
+  <!-- Decade Picker -->
+  <div id="decade-bar" style="display:none; align-items:center; gap:0.75rem; margin-bottom:1rem; width:100%; max-width:900px;">
+    <label for="decade-select" style="color:#aaa; font-size:0.9rem; white-space:nowrap;">Filter by decade:</label>
+    <select id="decade-select" style="background:#1a1a1a; color:#f0f0f0; border:1px solid #333; border-radius:6px; padding:0.5rem 0.75rem; font-size:0.95rem; cursor:pointer; flex:1; max-width:200px;">
+      <option value="">Any Decade</option>
+    </select>
+  </div>
+
+  <!-- Loading View -->
+  <section id="loading-view" aria-live="polite" aria-label="Loading">
+    <div class="spinner" role="status"></div>
+    <p>Loading movie…</p>
+  </section>
+
+  <!-- Error View -->
+  <section id="error-view" aria-live="assertive" aria-label="Error">
+    <p id="error-message">Something went wrong.</p>
+    <button class="action-btn" id="btn-retry" style="background:#e05050;color:#fff;">Try Again</button>
+  </section>
+
+  <!-- Image Viewer -->
+  <section id="image-viewer" aria-label="Screenshot viewer">
+    <div class="image-wrapper">
+      <img id="screenshot" src="" alt="Movie screenshot" />
+    </div>
+    <div class="nav-controls">
+      <button class="nav-btn" id="btn-left" aria-label="Previous screenshot">&#8592;</button>
+      <span id="counter">1 / 1</span>
+      <button class="nav-btn" id="btn-right" aria-label="Next screenshot">&#8594;</button>
+    </div>
+  </section>
+
+  <!-- Reveal Panel -->
+  <section id="reveal-panel" aria-label="Movie details">
+    <h2 id="reveal-title"></h2>
+    <p class="meta" id="reveal-meta"></p>
+    <p class="synopsis" id="reveal-synopsis"></p>
+    <p class="cast" id="reveal-cast"></p>
+  </section>
+
+  <!-- Hints Panel -->
+  <section id="hints-panel" aria-label="Hints">
+    <div id="hint-year" class="hint-item" style="display:none">
+      <span class="hint-label">Year</span>
+      <span class="hint-value" id="hint-year-val"></span>
+    </div>
+    <div id="hint-genres" class="hint-item" style="display:none">
+      <span class="hint-label">Genres</span>
+      <span class="hint-value" id="hint-genres-val"></span>
+    </div>
+    <div id="hint-cast" class="hint-item" style="display:none">
+      <span class="hint-label">Cast</span>
+      <span class="hint-value" id="hint-cast-val"></span>
+    </div>
+  </section>
+
+  <!-- Action Bar -->
+  <div id="action-bar">
+    <button class="action-btn" id="btn-hint">Show Hint</button>
+    <button class="action-btn" id="btn-reveal">Reveal Movie</button>
+    <button class="action-btn" id="btn-skip">Next Movie</button>
+    <button class="action-btn" id="btn-new">Next Movie</button>
+  </div>
+
+  <script>
+    // ─── Constants ───────────────────────────────────────────────────────────
+    const API_URL = 'https://batyn96vwb.execute-api.us-east-1.amazonaws.com/prod';
+
+    // ─── AppState ────────────────────────────────────────────────────────────
+    const state = {
+      movie: null,
+      currentIndex: 0,
+      revealed: false,
+      loading: false,
+      error: null,
+      hintsShown: 0,
+      seenIds: [],
+      selectedDecade: null,   // null = any, number = specific decade
+      decadePool: []          // shuffled movie list for current decade session
+    };
+
+    // ─── Pure Functions ───────────────────────────────────────────────────────
+
+    /**
+     * Get the image URL for a given index.
+     * Uses pre-signed image_urls from the API response directly.
+     * @param {object} movie
+     * @param {number} index
+     * @returns {string}
+     */
+    function getImageUrl(movie, index) {
+      return (movie.image_urls && movie.image_urls[index]) || '';
+    }
+
+    function navigateRight(currentIndex, total) {
+      return currentIndex < total - 1 ? currentIndex + 1 : currentIndex;
+    }
+
+    function navigateLeft(currentIndex) {
+      return currentIndex > 0 ? currentIndex - 1 : currentIndex;
+    }
+
+    // ─── API Client ───────────────────────────────────────────────────────────
+    async function fetchDecades() {
+      const res = await fetch(`${API_URL}/decades`);
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      return res.json();
+    }
+
+    async function fetchDecadeMovies(decade, excludeIds = []) {
+      const params = excludeIds.length ? `?exclude=${excludeIds.join(',')}` : '';
+      const res = await fetch(`${API_URL}/movies/decade/${decade}${params}`);
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      return res.json();
+    }
+
+    async function fetchRandomMovie(excludeIds = []) {
+      const params = excludeIds.length ? `?exclude=${excludeIds.join(',')}` : '';
+      const res = await fetch(`${API_URL}/random-movie${params}`);
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      const data = await res.json();
+      if (!data || !data.title) throw new Error('Malformed API response');
+      return data;
+    }
+
+    async function refreshMovieUrls(movieId) {
+      const res = await fetch(`${API_URL}/movie/${movieId}`);
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      return res.json();
+    }
+
+    // ─── Render ───────────────────────────────────────────────────────────────
+    function render(s) {
+      const loadingEl = document.getElementById('loading-view');
+      const errorEl = document.getElementById('error-view');
+      const viewerEl = document.getElementById('image-viewer');
+      const revealEl = document.getElementById('reveal-panel');
+      const actionEl = document.getElementById('action-bar');
+
+      // Visibility helpers
+      const show = el => (el.style.display = el.id === 'action-bar' ? 'flex' : 'flex');
+      const hide = el => (el.style.display = 'none');
+
+      hide(loadingEl); hide(errorEl); hide(viewerEl); hide(revealEl); hide(actionEl);
+
+      if (s.loading) {
+        show(loadingEl);
+        return;
+      }
+
+      if (s.error) {
+        document.getElementById('error-message').textContent = s.error;
+        show(errorEl);
+        return;
+      }
+
+      if (!s.movie) return;
+
+      const urls = s.movie.image_urls || [];
+      const total = urls.length;
+      const idx = s.currentIndex;
+
+      // Image viewer
+      show(viewerEl);
+      const img = document.getElementById('screenshot');
+      img.src = urls[idx] || '';
+      img.onerror = async () => {
+        img.onerror = null;
+        // Presigned URL may have expired — try refreshing the movie URLs
+        try {
+          const refreshed = await refreshMovieUrls(s.movie.movie_id);
+          if (refreshed && refreshed.image_urls && refreshed.image_urls[idx]) {
+            state.movie.image_urls = refreshed.image_urls;
+            img.src = refreshed.image_urls[idx];
+          } else {
+            img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='360'%3E%3Crect width='640' height='360' fill='%23222'/%3E%3Ctext x='50%25' y='50%25' fill='%23666' font-size='20' text-anchor='middle' dominant-baseline='middle'%3EImage unavailable%3C/text%3E%3C/svg%3E";
+          }
+        } catch {
+          img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='360'%3E%3Crect width='640' height='360' fill='%23222'/%3E%3Ctext x='50%25' y='50%25' fill='%23666' font-size='20' text-anchor='middle' dominant-baseline='middle'%3EImage unavailable%3C/text%3E%3C/svg%3E";
+        }
+      };
+
+      document.getElementById('counter').textContent = `${idx + 1} / ${total}`;
+      document.getElementById('btn-left').disabled = idx === 0;
+      document.getElementById('btn-right').disabled = idx === total - 1;
+
+      // Reveal panel
+      if (s.revealed) {
+        show(revealEl);
+        document.getElementById('reveal-title').textContent = s.movie.title;
+        document.getElementById('reveal-meta').textContent =
+          `${s.movie.year} · ${(s.movie.genres || []).join(', ')}`;
+        document.getElementById('reveal-synopsis').textContent = s.movie.synopsis || '';
+        document.getElementById('reveal-cast').textContent =
+          s.movie.cast ? 'Cast: ' + s.movie.cast.join(', ') : '';
+      }
+
+      // Hints panel
+      const hintsEl = document.getElementById('hints-panel');
+      if (!s.revealed && s.movie) {
+        hintsEl.style.display = s.hintsShown > 0 ? 'flex' : 'none';
+        const hints = [
+          { id: 'hint-year', valId: 'hint-year-val', val: s.movie.year },
+          { id: 'hint-genres', valId: 'hint-genres-val', val: (s.movie.genres || []).join(', ') },
+          { id: 'hint-cast', valId: 'hint-cast-val', val: (s.movie.cast || []).join(', ') }
+        ];
+        hints.forEach((h, i) => {
+          const el = document.getElementById(h.id);
+          el.style.display = s.hintsShown > i ? 'flex' : 'none';
+          document.getElementById(h.valId).textContent = h.val;
+        });
+      } else {
+        hintsEl.style.display = 'none';
+      }
+
+      // Action bar
+      show(actionEl);
+      const allHintsShown = s.hintsShown >= 3;
+      document.getElementById('btn-hint').style.display = s.revealed || allHintsShown ? 'none' : '';
+      document.getElementById('btn-hint').textContent = `Show Hint (${s.hintsShown + 1}/3)`;
+      document.getElementById('btn-reveal').style.display = s.revealed ? 'none' : '';
+      document.getElementById('btn-skip').style.display = s.revealed ? 'none' : '';
+      document.getElementById('btn-new').style.display = s.revealed ? '' : 'none';
+    }
+
+    // ─── Event Wiring ─────────────────────────────────────────────────────────
+    async function loadMovie() {
+      state.loading = true;
+      state.error = null;
+      state.movie = null;
+      state.currentIndex = 0;
+      state.revealed = false;
+      state.hintsShown = 0;
+      render(state);
+      try {
+        if (state.selectedDecade) {
+          // Use decade pool — refetch if empty
+          if (state.decadePool.length === 0) {
+            const data = await fetchDecadeMovies(state.selectedDecade, state.seenIds);
+            state.decadePool = data.movies || [];
+          }
+          if (state.decadePool.length === 0) throw new Error('No more movies in this decade.');
+          state.movie = state.decadePool.shift();
+        } else {
+          state.movie = await fetchRandomMovie(state.seenIds);
+        }
+        if (state.movie.movie_id) state.seenIds.push(state.movie.movie_id);
+      } catch (e) {
+        state.error = e.message || 'Failed to load movie.';
+      } finally {
+        state.loading = false;
+      }
+      render(state);
+    }
+
+    document.getElementById('btn-left').addEventListener('click', () => {
+      state.currentIndex = navigateLeft(state.currentIndex);
+      render(state);
+    });
+
+    document.getElementById('btn-right').addEventListener('click', () => {
+      state.currentIndex = navigateRight(state.currentIndex, (state.movie?.image_urls || []).length);
+      render(state);
+    });
+
+    document.getElementById('btn-hint').addEventListener('click', () => {
+      if (state.hintsShown < 3) { state.hintsShown++; render(state); }
+    });
+
+    document.getElementById('btn-reveal').addEventListener('click', () => {
+      state.revealed = true;
+      render(state);
+    });
+
+    document.getElementById('btn-skip').addEventListener('click', () => {
+      loadMovie();
+    });
+
+    document.getElementById('btn-new').addEventListener('click', () => {
+      loadMovie();
+    });
+
+    document.getElementById('btn-retry').addEventListener('click', () => {
+      loadMovie();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (!state.movie || state.loading) return;
+      const total = (state.movie.image_urls || []).length;
+      if (e.key === 'ArrowRight') {
+        state.currentIndex = navigateRight(state.currentIndex, total);
+        render(state);
+      } else if (e.key === 'ArrowLeft') {
+        state.currentIndex = navigateLeft(state.currentIndex);
+        render(state);
+      }
+    });
+
+    // ─── Boot ─────────────────────────────────────────────────────────────────
+    async function boot() {
+      // Load decades into dropdown
+      try {
+        const data = await fetchDecades();
+        const select = document.getElementById('decade-select');
+        (data.decades || [])
+          .sort((a, b) => a.decade - b.decade)
+          .forEach(({ decade, count }) => {
+            const opt = document.createElement('option');
+            opt.value = decade;
+            opt.textContent = `${decade}s (${count})`;
+            select.appendChild(opt);
+          });
+        document.getElementById('decade-bar').style.display = 'flex';
+      } catch (e) {
+        // Non-fatal — decade picker just won't show
+      }
+      loadMovie();
+    }
+
+    document.getElementById('decade-select').addEventListener('change', (e) => {
+      state.selectedDecade = e.target.value ? parseInt(e.target.value) : null;
+      state.seenIds = [];
+      state.decadePool = [];
+      loadMovie();
+    });
+
+    boot();
+  </script>
+</body>
+</html>
