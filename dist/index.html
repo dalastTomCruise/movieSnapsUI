@@ -162,17 +162,52 @@
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
     .hint-label { color: #e0b030; font-weight: 600; min-width: 60px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
     .hint-value { color: #f0f0f0; }
+
+    /* Decade Picker */
+    #decade-bar {
+      width: 100%;
+      max-width: 900px;
+      margin-bottom: 1rem;
+    }
+    #decade-bar label {
+      display: block;
+      color: #666;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.5rem;
+    }
+    #decade-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .decade-pill {
+      padding: 0.4rem 1rem;
+      min-height: 36px;
+      border: 1px solid #2a2a2a;
+      border-radius: 999px;
+      background: #1a1a1a;
+      color: #aaa;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .decade-pill:hover { border-color: #e0b030; color: #e0b030; }
+    .decade-pill.active { background: #e0b030; border-color: #e0b030; color: #0f0f0f; font-weight: 700; }
   </style>
 </head>
 <body>
   <h1>🎬 Movie Guessing Game</h1>
 
   <!-- Decade Picker -->
-  <div id="decade-bar" style="display:none; align-items:center; gap:0.75rem; margin-bottom:1rem; width:100%; max-width:900px;">
-    <label for="decade-select" style="color:#aaa; font-size:0.9rem; white-space:nowrap;">Filter by decade:</label>
-    <select id="decade-select" style="background:#1a1a1a; color:#f0f0f0; border:1px solid #333; border-radius:6px; padding:0.5rem 0.75rem; font-size:0.95rem; cursor:pointer; flex:1; max-width:200px;">
-      <option value="">Any Decade</option>
-    </select>
+  <div id="decade-bar" style="display:none;">
+    <label>Filter by decade</label>
+    <div id="decade-pills">
+      <button class="decade-pill active" data-decade="">All</button>
+    </div>
   </div>
 
   <!-- Loading View -->
@@ -467,31 +502,39 @@
 
     // ─── Boot ─────────────────────────────────────────────────────────────────
     async function boot() {
-      // Load decades into dropdown
       try {
         const data = await fetchDecades();
-        const select = document.getElementById('decade-select');
+        const pillsEl = document.getElementById('decade-pills');
         (data.decades || [])
           .sort((a, b) => a.decade - b.decade)
           .forEach(({ decade, count }) => {
-            const opt = document.createElement('option');
-            opt.value = decade;
-            opt.textContent = `${decade}s (${count})`;
-            select.appendChild(opt);
+            const btn = document.createElement('button');
+            btn.className = 'decade-pill';
+            btn.dataset.decade = decade;
+            btn.textContent = `${decade}s`;
+            btn.title = `${count} movies`;
+            btn.addEventListener('click', () => selectDecade(decade));
+            pillsEl.appendChild(btn);
           });
-        document.getElementById('decade-bar').style.display = 'flex';
+        // wire "All" pill
+        pillsEl.querySelector('[data-decade=""]').addEventListener('click', () => selectDecade(null));
+        document.getElementById('decade-bar').style.display = 'block';
       } catch (e) {
-        // Non-fatal — decade picker just won't show
+        // Non-fatal
       }
       loadMovie();
     }
 
-    document.getElementById('decade-select').addEventListener('change', (e) => {
-      state.selectedDecade = e.target.value ? parseInt(e.target.value) : null;
+    function selectDecade(decade) {
+      state.selectedDecade = decade;
       state.seenIds = [];
       state.decadePool = [];
+      // update active pill
+      document.querySelectorAll('.decade-pill').forEach(p => {
+        p.classList.toggle('active', (p.dataset.decade === '' && decade === null) || p.dataset.decade == decade);
+      });
       loadMovie();
-    });
+    }
 
     boot();
   </script>
