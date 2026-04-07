@@ -35,6 +35,7 @@ function startTimer() {
         state.guessed  = true;
         state.correct  = false;
         state.revealed = true;
+        if (scoring.getUsername()) scoring.onGuess(false, state.hardMode, state.hintsShown);
         document.querySelectorAll('.guess-btn').forEach(b => {
           b.disabled = true;
           if (b.textContent === state.movie.title) b.classList.add('correct');
@@ -178,6 +179,7 @@ function render(s) {
             state.correct  = isCorrect;
             state.revealed = true;
             stopTimer();
+            if (scoring.getUsername()) scoring.onGuess(isCorrect, state.hardMode, state.hintsShown);
             document.querySelectorAll('.guess-btn').forEach(b => {
               b.disabled = true;
               if (b.textContent === s.movie.title) b.classList.add('correct');
@@ -220,6 +222,7 @@ function submitHardGuess() {
   state.correct  = isCorrect;
   state.revealed = true;
   stopTimer();
+  if (scoring.getUsername()) scoring.onGuess(isCorrect, state.hardMode, state.hintsShown);
   input.disabled = true;
   document.getElementById('btn-hard-submit').disabled = true;
   render(state);
@@ -267,6 +270,7 @@ async function loadMovie() {
   }
   render(state);
   if (state.hardMode && state.movie && !state.error) startTimer();
+  if (state.movie && !state.error && scoring.getUsername()) scoring.onNewRound(state.hardMode);
 }
 
 function selectDecade(decade) {
@@ -280,6 +284,8 @@ function selectDecade(decade) {
 }
 
 async function boot() {
+  scoring.init();
+
   // Fetch full movies list for hard mode fuzzy search
   try {
     const titles = await fetch(`${API_URL}/movies-list`).then(r => r.json());
@@ -401,7 +407,11 @@ document.getElementById('btn-right').addEventListener('click', () => {
   render(state);
 });
 document.getElementById('btn-hint').addEventListener('click', () => {
-  if (state.hintsShown < 3) { state.hintsShown++; render(state); }
+  if (state.hintsShown < 3) {
+    state.hintsShown++;
+    if (scoring.getUsername()) scoring.onHint(state.hardMode, state.hintsShown);
+    render(state);
+  }
 });
 document.getElementById('btn-skip').addEventListener('click', () => { stopTimer(); loadMovie(); });
 document.getElementById('btn-new').addEventListener('click', () => { stopTimer(); loadMovie(); });
