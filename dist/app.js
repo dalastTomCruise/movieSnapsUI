@@ -265,9 +265,10 @@ async function loadMovie() {
         state.movie = await fetchRandomMovie(state.seenIds);
       }
       if (state.movie.movie_id) state.seenIds.push(state.movie.movie_id);
-      // Skip movies with no screenshots
+      // Skip movies with no screenshots or no similar movies
       const urls = state.movie.images_to_show || [];
-      if (urls.length > 0) break;
+      const similar = state.movie.similar_movies || [];
+      if (urls.length > 0 && similar.length > 0) break;
       state.movie = null;
     }
     if (!state.movie) throw new Error('No movies with screenshots found.');
