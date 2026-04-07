@@ -1,5 +1,7 @@
 const API_URL = 'https://batyn96vwb.execute-api.us-east-1.amazonaws.com/prod';
 
+let fuse = null; // initialized on boot with full movies list
+
 const state = {
   movie: null,
   currentIndex: 0,
@@ -38,8 +40,7 @@ function startTimer() {
           if (b.textContent === state.movie.title) b.classList.add('correct');
         });
         render(state);
-      }
-    }
+      }    }
   }, 1000);
 }
 
@@ -53,11 +54,11 @@ function updateTimerUI() {
   const label = document.getElementById('timer-label');
   const pct   = (timerRemaining / HARD_TIME) * 100;
   fill.style.width = pct + '%';
-  if (timerRemaining > 30) fill.style.background = '#2ecc71';
-  else if (timerRemaining > 15) fill.style.background = '#e0a030';
+  if (timerRemaining > 20) fill.style.background = '#2ecc71';
+  else if (timerRemaining > 10) fill.style.background = '#e0a030';
   else fill.style.background = '#e05050';
   label.textContent = `${timerRemaining}s`;
-  label.className = timerRemaining <= 15 ? 'urgent' : '';
+  label.className = timerRemaining <= 10 ? 'urgent' : '';
 }
 
 function navigateRight(i, total) { return i < total - 1 ? i + 1 : i; }
@@ -98,19 +99,20 @@ async function fetchRandomMovie(excludeIds = []) {
 }
 
 function render(s) {
-  const loadingEl = document.getElementById('loading-view');
-  const errorEl   = document.getElementById('error-view');
-  const viewerEl  = document.getElementById('image-viewer');
-  const revealEl  = document.getElementById('reveal-panel');
-  const actionEl  = document.getElementById('action-bar');
-  const hintsEl   = document.getElementById('hints-panel');
-  const guessEl   = document.getElementById('guess-panel');
+  const loadingEl    = document.getElementById('loading-view');
+  const errorEl      = document.getElementById('error-view');
+  const viewerEl     = document.getElementById('image-viewer');
+  const revealEl     = document.getElementById('reveal-panel');
+  const actionEl     = document.getElementById('action-bar');
+  const hintsEl      = document.getElementById('hints-panel');
+  const guessEl      = document.getElementById('guess-panel');
+  const hardGuessEl  = document.getElementById('hard-guess-panel');
 
   const show = el => (el.style.display = 'flex');
   const hide = el => (el.style.display = 'none');
 
   hide(loadingEl); hide(errorEl); hide(viewerEl); hide(revealEl);
-  hide(actionEl); hide(hintsEl); hide(guessEl);
+  hide(actionEl); hide(hintsEl); hide(guessEl); hide(hardGuessEl);
 
   // Timer bar visibility
   const timerBarEl = document.getElementById('timer-bar');
@@ -153,32 +155,41 @@ function render(s) {
     });
   }
 
-  // Guess options (before guessing, if available)
-  if (!s.guessed && s.guessOptions.length > 0) {
-    show(guessEl);
-    const optionsEl = document.getElementById('guess-options');
-    if (!optionsEl.hasChildNodes()) {
-      s.guessOptions.forEach(title => {
-        const btn = document.createElement('button');
-        btn.className = 'guess-btn';
-        btn.textContent = title;
-        btn.addEventListener('click', () => {
-          const isCorrect = title === s.movie.title;
-          state.guessed  = true;
-          state.correct  = isCorrect;
-          state.revealed = true;
-          stopTimer();
-          document.querySelectorAll('.guess-btn').forEach(b => {
-            b.disabled = true;
-            if (b.textContent === s.movie.title) b.classList.add('correct');
-            else if (b.textContent === title && !isCorrect) b.classList.add('wrong');
+  if (!s.guessed) {
+    if (s.hardMode) {
+      // Hard mode: free-text search
+      show(hardGuessEl);
+      const input  = document.getElementById('hard-guess-input');
+      const submit = document.getElementById('btn-hard-submit');
+      input.disabled  = false;
+      submit.disabled = !input.value.trim();
+    } else if (s.guessOptions.length > 0) {
+      // Normal mode: multiple choice
+      show(guessEl);
+      const optionsEl = document.getElementById('guess-options');
+      if (!optionsEl.hasChildNodes()) {
+        s.guessOptions.forEach(title => {
+          const btn = document.createElement('button');
+          btn.className = 'guess-btn';
+          btn.textContent = title;
+          btn.addEventListener('click', () => {
+            const isCorrect = title === s.movie.title;
+            state.guessed  = true;
+            state.correct  = isCorrect;
+            state.revealed = true;
+            stopTimer();
+            document.querySelectorAll('.guess-btn').forEach(b => {
+              b.disabled = true;
+              if (b.textContent === s.movie.title) b.classList.add('correct');
+              else if (b.textContent === title && !isCorrect) b.classList.add('wrong');
+            });
+            render(state);
           });
-          render(state);
+          optionsEl.appendChild(btn);
         });
-        optionsEl.appendChild(btn);
-      });
+      }
+      show(guessEl);
     }
-    show(guessEl);
   }
 
   // Reveal panel (after guessing)
@@ -194,10 +205,24 @@ function render(s) {
   // Action bar
   show(actionEl);
   const allHintsShown = s.hintsShown >= 3;
-  document.getElementById('btn-hint').style.display = s.guessed || allHintsShown ? 'none' : '';
+  document.getElementById('btn-hint').style.display = (s.guessed || allHintsShown || s.hardMode) ? 'none' : '';
   document.getElementById('btn-hint').textContent   = `Show Hint (${s.hintsShown + 1}/3)`;
   document.getElementById('btn-skip').style.display = s.guessed ? 'none' : '';
   document.getElementById('btn-new').style.display  = s.guessed ? '' : 'none';
+}
+
+function submitHardGuess() {
+  const input = document.getElementById('hard-guess-input');
+  const guess = input.value.trim();
+  if (!guess || state.guessed) return;
+  const isCorrect = guess.toLowerCase() === state.movie.title.toLowerCase();
+  state.guessed  = true;
+  state.correct  = isCorrect;
+  state.revealed = true;
+  stopTimer();
+  input.disabled = true;
+  document.getElementById('btn-hard-submit').disabled = true;
+  render(state);
 }
 
 function placeholder() {
@@ -215,6 +240,12 @@ async function loadMovie() {
   state.hintsShown   = 0;
   state.guessOptions = [];
   document.getElementById('guess-options').innerHTML = '';
+  // Reset hard mode search
+  const hardInput = document.getElementById('hard-guess-input');
+  hardInput.value = '';
+  hardInput.disabled = false;
+  document.getElementById('btn-hard-submit').disabled = true;
+  document.getElementById('search-dropdown').style.display = 'none';
   render(state);
   try {
     if (state.selectedDecade) {
@@ -249,6 +280,81 @@ function selectDecade(decade) {
 }
 
 async function boot() {
+  // Fetch full movies list for hard mode fuzzy search
+  try {
+    const titles = await fetch(`${API_URL}/movies-list`).then(r => r.json());
+    const raw = Array.isArray(titles) ? titles : (titles.titles || titles.movies || []);
+    // Handle both flat strings and objects
+    const items = raw.map(t => typeof t === 'string' ? { title: t } : t);
+    fuse = new Fuse(items, { keys: ['title'], threshold: 0.35, distance: 100 });
+  } catch (e) {
+    console.error('[boot] movies-list failed:', e);
+  }
+
+  // Wire up hard mode search input
+  const input    = document.getElementById('hard-guess-input');
+  const dropdown = document.getElementById('search-dropdown');
+  const submit   = document.getElementById('btn-hard-submit');
+  let activeIdx  = -1;
+
+  function closeDropdown() {
+    dropdown.style.display = 'none';
+    dropdown.innerHTML = '';
+    activeIdx = -1;
+  }
+
+  function selectSuggestion(title) {
+    input.value = title;
+    submit.disabled = false;
+    closeDropdown();
+    input.focus();
+  }
+
+  input.addEventListener('input', () => {
+    const q = input.value.trim();
+    submit.disabled = !q;
+    if (!q || !fuse) { closeDropdown(); return; }
+    const results = fuse.search(q, { limit: 8 });
+    if (!results.length) { closeDropdown(); return; }
+    dropdown.innerHTML = '';
+    activeIdx = -1;
+    results.forEach(({ item }) => {
+      const div = document.createElement('div');
+      div.className = 'search-item';
+      div.textContent = item.title;
+      div.addEventListener('mousedown', (e) => { e.preventDefault(); selectSuggestion(item.title); });
+      dropdown.appendChild(div);
+    });
+    dropdown.style.display = 'block';
+  });
+
+  input.addEventListener('keydown', (e) => {
+    const items = dropdown.querySelectorAll('.search-item');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIdx = Math.min(activeIdx + 1, items.length - 1);
+      items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIdx = Math.max(activeIdx - 1, -1);
+      items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeIdx >= 0 && items[activeIdx]) {
+        selectSuggestion(items[activeIdx].textContent);
+      } else if (input.value.trim()) {
+        submitHardGuess();
+      }
+    } else if (e.key === 'Escape') {
+      closeDropdown();
+    }
+  });
+
+  input.addEventListener('blur', () => setTimeout(closeDropdown, 150));
+
+  submit.addEventListener('click', submitHardGuess);
+
+  // Fetch decades
   try {
     const data = await fetchDecades();
     const pillsEl = document.getElementById('decade-pills');
@@ -264,6 +370,7 @@ async function boot() {
     pillsEl.querySelector('[data-decade=""]').addEventListener('click', () => selectDecade(null));
     document.getElementById('decade-bar').style.display = 'block';
   } catch (e) { /* non-fatal */ }
+
   loadMovie();
 }
 

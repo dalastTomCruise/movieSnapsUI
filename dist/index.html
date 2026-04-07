@@ -95,6 +95,34 @@
     #timer-label { font-size: 0.8rem; color: #aaa; text-align: right; font-variant-numeric: tabular-nums; }
     #timer-label.urgent { color: #e05050; font-weight: 700; }
 
+    /* Hard Mode Search */
+    #hard-guess-panel { display: none; flex-direction: column; gap: 0.5rem; width: 100%; max-width: 900px; margin-top: 0.75rem; }
+    #hard-guess-panel p { font-size: 0.8rem; color: #666; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.25rem; }
+    .search-wrap { position: relative; }
+    #hard-guess-input {
+      width: 100%; padding: 0.75rem 1rem; background: #1a1a1a; border: 1px solid #2a2a2a;
+      border-radius: 8px; color: #f0f0f0; font-size: 0.95rem; outline: none;
+      transition: border-color 0.15s;
+    }
+    #hard-guess-input:focus { border-color: #e05050; }
+    #hard-guess-input:disabled { opacity: 0.4; }
+    #search-dropdown {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: #1e1e1e; border: 1px solid #333; border-radius: 8px;
+      max-height: 220px; overflow-y: auto; z-index: 10; display: none;
+    }
+    .search-item {
+      padding: 0.6rem 1rem; font-size: 0.9rem; color: #f0f0f0; cursor: pointer;
+      transition: background 0.1s;
+    }
+    .search-item:hover, .search-item.active { background: #2a2a2a; color: #e05050; }
+    #btn-hard-submit {
+      width: 100%; padding: 0.75rem; background: #e05050; border: none; border-radius: 8px;
+      color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; transition: opacity 0.2s;
+    }
+    #btn-hard-submit:hover:not(:disabled) { opacity: 0.85; }
+    #btn-hard-submit:disabled { opacity: 0.35; cursor: not-allowed; }
+
     /* Mobile */
     @media (max-width: 600px) {
       body { padding: 0.5rem; }
@@ -170,6 +198,16 @@
     </div>
   </section>
 
+  <!-- Hard Mode Search Panel -->
+  <section id="hard-guess-panel" aria-label="Guess the movie">
+    <p>Type the movie title</p>
+    <div class="search-wrap">
+      <input id="hard-guess-input" type="text" placeholder="Search 4000+ movies…" autocomplete="off" />
+      <div id="search-dropdown"></div>
+    </div>
+    <button id="btn-hard-submit" disabled>Submit Guess</button>
+  </section>
+
   <!-- Guess Panel -->
   <section id="guess-panel" aria-label="Guess the movie">
     <p>Which movie is this?</p>
@@ -191,6 +229,7 @@
     <button class="action-btn" id="btn-new">Next Movie</button>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/fuse.js@7/dist/fuse.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
