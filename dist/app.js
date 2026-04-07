@@ -251,17 +251,26 @@ async function loadMovie() {
   document.getElementById('search-dropdown').style.display = 'none';
   render(state);
   try {
-    if (state.selectedDecade) {
-      if (state.decadePool.length === 0) {
-        const data = await fetchDecadeMovies(state.selectedDecade, state.seenIds);
-        state.decadePool = data.movies || [];
+    let attempts = 0;
+    while (attempts < 5) {
+      attempts++;
+      if (state.selectedDecade) {
+        if (state.decadePool.length === 0) {
+          const data = await fetchDecadeMovies(state.selectedDecade, state.seenIds);
+          state.decadePool = data.movies || [];
+        }
+        if (state.decadePool.length === 0) throw new Error('No more movies in this decade.');
+        state.movie = state.decadePool.shift();
+      } else {
+        state.movie = await fetchRandomMovie(state.seenIds);
       }
-      if (state.decadePool.length === 0) throw new Error('No more movies in this decade.');
-      state.movie = state.decadePool.shift();
-    } else {
-      state.movie = await fetchRandomMovie(state.seenIds);
+      if (state.movie.movie_id) state.seenIds.push(state.movie.movie_id);
+      // Skip movies with no screenshots
+      const urls = state.movie.images_to_show || [];
+      if (urls.length > 0) break;
+      state.movie = null;
     }
-    if (state.movie.movie_id) state.seenIds.push(state.movie.movie_id);
+    if (!state.movie) throw new Error('No movies with screenshots found.');
     state.guessOptions = buildGuessOptions(state.movie);
   } catch (e) {
     state.error = e.message || 'Failed to load movie.';
