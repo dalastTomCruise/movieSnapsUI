@@ -205,7 +205,7 @@ function render(s) {
   // Action bar
   show(actionEl);
   const allHintsShown = s.hintsShown >= 3;
-  document.getElementById('btn-hint').style.display = (s.guessed || allHintsShown || s.hardMode) ? 'none' : '';
+  document.getElementById('btn-hint').style.display = (s.guessed || allHintsShown) ? 'none' : '';
   document.getElementById('btn-hint').textContent   = `Show Hint (${s.hintsShown + 1}/3)`;
   document.getElementById('btn-skip').style.display = s.guessed ? 'none' : '';
   document.getElementById('btn-new').style.display  = s.guessed ? '' : 'none';
