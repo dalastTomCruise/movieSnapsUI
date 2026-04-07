@@ -188,8 +188,9 @@
     function navigateLeft(i) { return i > 0 ? i - 1 : i; }
 
     function buildGuessOptions(movie) {
-      const correct = `${movie.title} (${movie.year})`;
-      const similar = (movie.similar_movies || []).slice(0, 3);
+      const correct = movie.title;
+      // Strip year from similar_movies strings e.g. "The Matrix (1999)" → "The Matrix"
+      const similar = (movie.similar_movies || []).slice(0, 3).map(s => s.replace(/\s*\(\d{4}\)\s*$/, ''));
       if (similar.length === 0) return [];
       const options = [correct, ...similar];
       for (let i = options.length - 1; i > 0; i--) {
@@ -221,12 +222,6 @@
       return data;
     }
 
-    async function refreshMovieUrls(movieId) {
-      const res = await fetch(`${API_URL}/movie/${movieId}`);
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
-      return res.json();
-    }
-
     function render(s) {
       const loadingEl = document.getElementById('loading-view');
       const errorEl   = document.getElementById('error-view');
@@ -252,7 +247,7 @@
 
       if (!s.movie) return;
 
-      const urls  = s.movie.image_urls || [];
+      const urls  = s.movie.images_to_show || [];
       const total = urls.length;
       const idx   = s.currentIndex;
 
@@ -260,16 +255,7 @@
       show(viewerEl);
       const img = document.getElementById('screenshot');
       img.src = urls[idx] || '';
-      img.onerror = async () => {
-        img.onerror = null;
-        try {
-          const refreshed = await refreshMovieUrls(s.movie.movie_id);
-          if (refreshed?.image_urls?.[idx]) {
-            state.movie.image_urls = refreshed.image_urls;
-            img.src = refreshed.image_urls[idx];
-          } else { img.src = placeholder(); }
-        } catch { img.src = placeholder(); }
-      };
+      img.onerror = () => { img.onerror = null; img.src = placeholder(); };
       document.getElementById('counter').textContent = `${idx + 1} / ${total}`;
       document.getElementById('btn-left').disabled  = idx === 0;
       document.getElementById('btn-right').disabled = idx === total - 1;
@@ -299,13 +285,13 @@
             btn.className = 'guess-btn';
             btn.textContent = title;
             btn.addEventListener('click', () => {
-              const isCorrect = title === `${s.movie.title} (${s.movie.year})`;
+              const isCorrect = title === s.movie.title;
               state.guessed  = true;
               state.correct  = isCorrect;
               state.revealed = true;
               document.querySelectorAll('.guess-btn').forEach(b => {
                 b.disabled = true;
-                if (b.textContent === `${s.movie.title} (${s.movie.year})`) b.classList.add('correct');
+                if (b.textContent === s.movie.title) b.classList.add('correct');
                 else if (b.textContent === title && !isCorrect) b.classList.add('wrong');
               });
               render(state);
@@ -389,7 +375,7 @@
 
     document.addEventListener('keydown', (e) => {
       if (!state.movie || state.loading) return;
-      const total = (state.movie.image_urls || []).length;
+      const total = (state.movie.images_to_show || []).length;
       if (e.key === 'ArrowRight') { state.currentIndex = navigateRight(state.currentIndex, total); render(state); }
       else if (e.key === 'ArrowLeft') { state.currentIndex = navigateLeft(state.currentIndex); render(state); }
     });
