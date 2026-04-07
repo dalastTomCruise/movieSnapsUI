@@ -16,7 +16,7 @@ const state = {
   hardMode: false
 };
 
-const HARD_TIME = 90;
+const HARD_TIME = 30;
 let timerInterval = null;
 let timerRemaining = HARD_TIME;
 
