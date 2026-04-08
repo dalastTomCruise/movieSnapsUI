@@ -118,8 +118,7 @@ const scoring = (() => {
     }
 
     if (username) {
-      submitScore();
-      fetchLeaderboard();
+      submitScoreAndSync().then(() => fetchLeaderboard());
     }
 
     return delta;
@@ -129,14 +128,23 @@ const scoring = (() => {
     if (elScTotal) elScTotal.textContent = totalScore;
   }
 
-  async function submitScore() {
+  /** POST score to backend, read back the confirmed value, and sync local state. */
+  async function submitScoreAndSync() {
     if (!username) return;
     try {
-      await fetch(`${API_URL}/score`, {
+      const res = await fetch(`${API_URL}/score`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, score: totalScore })
       });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.score === 'number') {
+          totalScore = data.score;
+          localStorage.setItem(SCORE_KEY, totalScore);
+          renderScore();
+        }
+      }
     } catch (e) { /* silent */ }
   }
 
