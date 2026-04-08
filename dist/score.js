@@ -10,11 +10,20 @@
 
 const scoring = (() => {
   const SCORE_KEY = 'movieGameScore';
+  const DATE_KEY  = 'movieGameScoreDate';
   const USER_KEY  = 'movieGameUsername';
   const NORMAL_BASE = 20;
   const HARD_BASE   = 40;
   const HINT_PENALTY = 5;
   const WRONG_PENALTY = 10;
+
+  function todayUTC() { return new Date().toISOString().slice(0, 10); }
+
+  // Reset local score if it's a new day
+  if (localStorage.getItem(DATE_KEY) !== todayUTC()) {
+    localStorage.setItem(SCORE_KEY, '0');
+    localStorage.setItem(DATE_KEY, todayUTC());
+  }
 
   let totalScore = parseInt(localStorage.getItem(SCORE_KEY) || '0', 10);
   let username   = localStorage.getItem(USER_KEY) || '';
@@ -50,7 +59,7 @@ const scoring = (() => {
     });
 
     renderScore();
-    fetchLeaderboard();
+    syncAndFetchLeaderboard();
   }
 
   function setUsername() {
@@ -136,8 +145,31 @@ const scoring = (() => {
       const res = await fetch(`${API_URL}/leaderboard`);
       if (!res.ok) return;
       const data = await res.json();
-      renderLeaderboard(data.leaderboard || []);
+      const entries = data.leaderboard || [];
+      renderLeaderboard(entries);
+      // Sync local score with backend
+      syncScoreFromLeaderboard(entries);
     } catch (e) { /* silent */ }
+  }
+
+  /** Pull the user's score from the leaderboard and update localStorage to match. */
+  function syncScoreFromLeaderboard(entries) {
+    if (!username) return;
+    const me = entries.find(e => e.username.toLowerCase() === username.toLowerCase());
+    if (me) {
+      totalScore = me.score;
+    } else {
+      // User not on leaderboard — backend has no score for today, reset local
+      totalScore = 0;
+    }
+    localStorage.setItem(SCORE_KEY, totalScore);
+    localStorage.setItem(DATE_KEY, todayUTC());
+    renderScore();
+  }
+
+  /** Convenience: sync + render leaderboard in one call (used on init). */
+  async function syncAndFetchLeaderboard() {
+    await fetchLeaderboard();
   }
 
   function renderLeaderboard(entries) {
